@@ -36,7 +36,8 @@ export default function ChatbotWidget() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/chatbot/visa', {
+      const baseURL = import.meta.env.VITE_API_URL || '/api';
+      const response = await fetch(`${baseURL}/chatbot/visa`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: messageToSend, countryName: 'general' })
@@ -50,7 +51,7 @@ export default function ChatbotWidget() {
     } catch (error) {
       setMessages(prev => [...prev, { 
         id: (Date.now() + 1).toString(), 
-        text: "Connection error. Backend running on port 5000?", 
+        text: "Something went wrong. Please try again in a moment.",
         isUser: false 
       }]);
     } finally {

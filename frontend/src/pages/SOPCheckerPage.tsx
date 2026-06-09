@@ -22,7 +22,8 @@ export default function SOPCheckerPage() {
     setLoading(true); setError(''); setResult(null);
     try {
       const token = localStorage.getItem('pf_token');
-      const res = await fetch('/api/sop/check-visa', {
+      const baseURL = import.meta.env.VITE_API_URL || '/api';
+      const res = await fetch(`${baseURL}/sop/check-visa`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ sopText, targetCountry }),
