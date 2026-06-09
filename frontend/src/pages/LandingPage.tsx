@@ -784,7 +784,7 @@ export default function LandingPage() {
             </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {news.map((item: { _id: string; title: string; content: string; createdAt: string; imageUrl?: string; link?: string }, index: number) => (
+            {news.map((item: { _id: string; title: string; content: string; createdAt: string; imageUrl?: string; link?: string }) => (
               <a key={item._id} href={item.link || '#'} target={item.link ? '_blank' : '_self'}
                 rel="noopener noreferrer"
                 className="group block rounded-2xl overflow-hidden transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl w-full"

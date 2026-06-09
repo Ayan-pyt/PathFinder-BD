@@ -194,11 +194,6 @@ export default function CostCalculatorPage() {
     }
   }, [country]);
 
-  const toLocalCurrency = (bdtAmount: number, currency: string) => {
-    const rate = bdtRates[currency] || FALLBACK_RATES[currency] || 100;
-    return bdtAmount / rate;
-  };
-
   const toBDT = (localAmount: number, currency: string) => {
     const rate = bdtRates[currency] || FALLBACK_RATES[currency] || 100;
     return localAmount * rate;

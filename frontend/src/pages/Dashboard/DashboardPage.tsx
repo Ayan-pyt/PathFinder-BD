@@ -125,7 +125,7 @@ const TODO_BY_STAGE: Record<string, { task: string; link: string; priority: 'hig
  
 // ── Interactive Journey Stepper ──────────────────────────────────────────────
 function JourneyStepper({ stageIdx }: { stageIdx: number }) {
-  const { user, setUser } = useAuthStore();
+  const { setUser } = useAuthStore();
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [showConfirm, setShowConfirm] = useState<number | null>(null);
  

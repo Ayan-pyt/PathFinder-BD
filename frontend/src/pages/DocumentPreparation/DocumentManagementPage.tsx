@@ -1,15 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   FileText, UploadCloud, CheckCircle, Download, Copy,
-  ArrowLeft, GraduationCap, Award, CreditCard, User,
-  Loader2, ChevronDown, ChevronUp, Sparkles, Trash2,
-  Eye, Calendar, X, Plus, FolderOpen, Briefcase, Plane,
-  Landmark, FileCheck, MoreVertical
+  ArrowLeft, Award, Loader2, ChevronDown,
+  ChevronUp, Trash2, Eye, Calendar, X, FolderOpen
 } from 'lucide-react';
 import { documentApi, type Document } from '../../services/api/documentApi';
-import { useAuthStore } from '../../store/authStore';
 
 // Document type options for upload
 const DOCUMENT_TYPES = {
@@ -42,14 +39,6 @@ const DOCUMENT_TYPES = {
   other: [
     { value: 'other', label: '📁 Other Document', icon: '📁' },
   ]
-};
-
-const CATEGORY_CONFIG = {
-  student_vault: { label: 'Student Vault', icon: Briefcase, color: 'text-blue-600 bg-blue-50 border-blue-100', order: 1 },
-  academic: { label: 'Academic', icon: GraduationCap, color: 'text-violet-600 bg-violet-50 border-violet-100', order: 2 },
-  financial: { label: 'Financial', icon: CreditCard, color: 'text-emerald-600 bg-emerald-50 border-emerald-100', order: 3 },
-  visa: { label: 'Visa & Immigration', icon: Plane, color: 'text-amber-600 bg-amber-50 border-amber-100', order: 4 },
-  custom: { label: 'Custom', icon: FolderOpen, color: 'text-slate-600 bg-slate-50 border-slate-100', order: 5 },
 };
 
 // Templates (keep existing)
@@ -95,7 +84,6 @@ Sincerely,
 [Your Full Name]`;
 
 export default function DocumentManagementPage() {
-  const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'vault' | 'templates'>('vault');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -115,7 +103,7 @@ export default function DocumentManagementPage() {
   });
 
   // Fetch user's documents
-  const { data: vaultData, isLoading, refetch } = useQuery({
+  const { data: vaultData, isLoading } = useQuery({
     queryKey: ['userVault'],
     queryFn: documentApi.getUserVault,
   });
