@@ -19,6 +19,8 @@ interface SOPFormData {
   challenges: string;
 }
 
+const API_BASE = import.meta.env.VITE_API_URL?.replace(/\/+$/, '') || '';
+
 export default function SOPGeneratorPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -49,7 +51,7 @@ export default function SOPGeneratorPage() {
     
     try {
       const token = localStorage.getItem('pf_token');
-      const response = await fetch('/api/sop/generate', {
+      const response = await fetch(`${API_BASE}/api/sop/generate`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
