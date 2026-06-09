@@ -10,10 +10,6 @@ interface CheckResult {
   improvements: string[]; visaSpecificTips: string;
 }
 
-const API_BASE = (import.meta.env.VITE_API_URL || '')
-  .replace(/\/+$/, '')
-  .replace(/\/api$/, '');
-
 export default function SOPCheckerPage() {
   const [sopText, setSopText] = useState('');
   const [targetCountry, setTargetCountry] = useState('United Kingdom');
@@ -26,7 +22,7 @@ export default function SOPCheckerPage() {
     setLoading(true); setError(''); setResult(null);
     try {
       const token = localStorage.getItem('pf_token');
-      const res = await fetch(`${API_BASE}/api/sop/check-visa`, {
+      const res = await fetch('/api/sop/check-visa', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ sopText, targetCountry }),
