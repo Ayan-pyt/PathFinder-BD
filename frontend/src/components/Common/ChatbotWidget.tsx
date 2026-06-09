@@ -14,7 +14,9 @@ const suggestedQuestions = [
   "Part-time work rules in Australia?"
 ];
 
-const API_BASE = import.meta.env.VITE_API_URL?.replace(/\/+$/, '') || '';
+const API_BASE = (import.meta.env.VITE_API_URL || '')
+  .replace(/\/+$/, '')
+  .replace(/\/api$/, '');
 
 export default function ChatbotWidget() {
   const [isOpen, setIsOpen] = useState(false);
