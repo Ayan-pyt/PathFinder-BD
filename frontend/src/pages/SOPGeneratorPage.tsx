@@ -49,8 +49,7 @@ export default function SOPGeneratorPage() {
     
     try {
       const token = localStorage.getItem('pf_token');
-      const baseURL = import.meta.env.VITE_API_URL || '/api';
-      const response = await fetch(`${baseURL}/sop/generate`, {
+      const response = await fetch('/api/sop/generate', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
