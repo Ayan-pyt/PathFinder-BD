@@ -1,3 +1,4 @@
+import apiClient from '../services/api/client';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -48,22 +49,14 @@ export default function SOPGeneratorPage() {
     setStep('generating');
     
     try {
-      const token = localStorage.getItem('pf_token');
-      const response = await fetch('/api/sop/generate', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      });
-      
-      const data = await response.json();
+      const res = await apiClient.post('/sop/generate', formData);
+      const data = res.data;
+
       if (data.success) {
         setGeneratedSOP(data.data.sop);
         setStep('result');
       } else {
-        throw new Error(data.message);
+        throw new Error(data.message || 'Generation failed');
       }
     } catch (error) {
       console.error('SOP generation failed:', error);

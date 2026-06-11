@@ -1,3 +1,4 @@
+import apiClient from '../services/api/client';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ShieldCheck, Loader2, ArrowLeft, AlertCircle, CheckCircle, XCircle, Sparkles } from 'lucide-react';
@@ -21,13 +22,8 @@ export default function SOPCheckerPage() {
     if (sopText.trim().length < 100) { setError('Please paste your SOP (minimum 100 characters).'); return; }
     setLoading(true); setError(''); setResult(null);
     try {
-      const token = localStorage.getItem('pf_token');
-      const res = await fetch('/api/sop/check-visa', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ sopText, targetCountry }),
-      });
-      const data = await res.json();
+      const res = await apiClient.post('/sop/check-visa', { sopText, targetCountry });
+      const data = res.data;
       if (data.success) setResult(data.data);
       else throw new Error(data.message);
     } catch (e: unknown) {
