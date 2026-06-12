@@ -48,15 +48,23 @@ const uploadDocument = async (req, res) => {
     // We MUST use Cloudinary as the primary source of truth.
     if (cloudinary && process.env.CLOUDINARY_CLOUD_NAME) {
       try {
-        // Clean filename and PRESERVE EXTENSION so Cloudinary sets the correct Content-Type (e.g. application/pdf)
-        const safeOriginalName = req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const isImage = ['image/jpeg', 'image/jpg', 'image/png'].includes(req.file.mimetype);
+        const resourceType = isImage ? 'image' : 'raw';
+
+        const ext = path.extname(req.file.originalname);
+        const baseName = path.basename(req.file.originalname, ext).replace(/[^a-zA-Z0-9-]/g, '_');
+        const safeExtension = ext.replace(/[^a-zA-Z0-9.]/g, '');
+
+        const publicId = isImage 
+          ? `${Date.now()}-${baseName}`
+          : `${Date.now()}-${baseName}${safeExtension}`;
 
         const result = await new Promise((resolve, reject) => {
           const cloudinaryStream = cloudinary.uploader.upload_stream(
             {
               folder: `pathfinder-vault/${req.user._id}`,
-              resource_type: 'auto',
-              public_id: `${Date.now()}-${safeOriginalName}`
+              resource_type: resourceType,
+              public_id: publicId
             },
             (error, result) => {
               if (error) reject(error);
@@ -67,7 +75,7 @@ const uploadDocument = async (req, res) => {
         });
 
         fileUrl = result.secure_url;
-        console.log('☁️  Cloudinary upload successful. Using as primary URL:', fileUrl);
+        console.log(`☁️  Cloudinary upload successful (${resourceType}). Using as primary URL:`, fileUrl);
       } catch (e) {
         console.warn('⚠️  Cloudinary upload failed. Falling back to local storage.', e.message);
       }
