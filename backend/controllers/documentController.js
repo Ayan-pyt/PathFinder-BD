@@ -39,31 +39,37 @@ const uploadDocument = async (req, res) => {
 
     const { documentType, category, displayName, notes, documentDate, expiryDate, customCategoryName } = req.body;
 
-    // ALWAYS save locally — guarantees reliable preview & download.
-    // Cross-origin Cloudinary URLs break <a download> and cause browser PDF viewer issues.
-    const fileUrl = await saveFileLocally(req.file);
-    console.log('📁 File saved locally:', fileUrl);
+    // We still save locally for local dev, but we won't rely on it for deployed apps
+    let fileUrl = await saveFileLocally(req.file);
+    console.log('📁 File saved locally (fallback):', fileUrl);
 
-    // Optionally also push to Cloudinary as a cloud backup (non-blocking, failures are ignored)
+    // Primary Storage: Cloudinary (Awaited so we can use its URL)
+    // Cloud environments like Render have ephemeral filesystems, so local files disappear.
+    // We MUST use Cloudinary as the primary source of truth.
     if (cloudinary && process.env.CLOUDINARY_CLOUD_NAME) {
       try {
         const isImage = req.file.mimetype.startsWith('image/');
         const resourceType = isImage ? 'image' : 'raw';
 
-        const cloudinaryStream = cloudinary.uploader.upload_stream(
-          {
-            folder: `pathfinder-vault/${req.user._id}`,
-            resource_type: resourceType,
-            public_id: `${Date.now()}-${path.parse(req.file.originalname).name}`
-          },
-          (error, result) => {
-            if (error) console.warn('⚠️  Cloudinary backup failed (non-critical):', error.message);
-            else console.log('☁️  Cloudinary backup uploaded:', result.secure_url);
-          }
-        );
-        cloudinaryStream.end(req.file.buffer);
+        const result = await new Promise((resolve, reject) => {
+          const cloudinaryStream = cloudinary.uploader.upload_stream(
+            {
+              folder: `pathfinder-vault/${req.user._id}`,
+              resource_type: resourceType,
+              public_id: `${Date.now()}-${path.parse(req.file.originalname).name}`
+            },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          );
+          cloudinaryStream.end(req.file.buffer);
+        });
+
+        fileUrl = result.secure_url;
+        console.log('☁️  Cloudinary upload successful. Using as primary URL:', fileUrl);
       } catch (e) {
-        console.warn('⚠️  Cloudinary non-critical error:', e.message);
+        console.warn('⚠️  Cloudinary upload failed. Falling back to local storage.', e.message);
       }
     }
 
