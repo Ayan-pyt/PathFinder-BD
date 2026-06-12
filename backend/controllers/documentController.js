@@ -48,15 +48,15 @@ const uploadDocument = async (req, res) => {
     // We MUST use Cloudinary as the primary source of truth.
     if (cloudinary && process.env.CLOUDINARY_CLOUD_NAME) {
       try {
-        const isImage = req.file.mimetype.startsWith('image/');
-        const resourceType = isImage ? 'image' : 'raw';
+        // Clean filename and PRESERVE EXTENSION so Cloudinary sets the correct Content-Type (e.g. application/pdf)
+        const safeOriginalName = req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
 
         const result = await new Promise((resolve, reject) => {
           const cloudinaryStream = cloudinary.uploader.upload_stream(
             {
               folder: `pathfinder-vault/${req.user._id}`,
-              resource_type: resourceType,
-              public_id: `${Date.now()}-${path.parse(req.file.originalname).name}`
+              resource_type: 'auto',
+              public_id: `${Date.now()}-${safeOriginalName}`
             },
             (error, result) => {
               if (error) reject(error);
@@ -140,6 +140,41 @@ const downloadDocument = async (req, res) => {
   } catch (error) {
     console.error('Download error:', error);
     res.status(500).json({ success: false, message: 'Download failed', error: error.message });
+  }
+};
+
+// @desc    View / preview a document inline (works for both local & Cloudinary URLs)
+// @route   GET /api/documents/:id/view
+// @access  Private
+const viewDocument = async (req, res) => {
+  try {
+    const document = await Document.findOne({ _id: req.params.id, user: req.user._id });
+
+    if (!document) {
+      return res.status(404).json({ success: false, message: 'Document not found' });
+    }
+
+    const safeFileName = encodeURIComponent(document.fileName || 'view');
+    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${safeFileName}`);
+    res.setHeader('Content-Type', document.fileType || 'application/octet-stream');
+
+    const fileUrl = document.fileUrl;
+
+    if (fileUrl && (fileUrl.startsWith('http://') || fileUrl.startsWith('https://'))) {
+      // External URL (Cloudinary) — proxy the stream through backend
+      const response = await axios.get(fileUrl, { responseType: 'stream', timeout: 30000 });
+      response.data.pipe(res);
+    } else {
+      // Local file — serve directly
+      const localPath = path.join(__dirname, '..', fileUrl);
+      if (!fs.existsSync(localPath)) {
+        return res.status(404).json({ success: false, message: 'File not found on server' });
+      }
+      res.sendFile(localPath);
+    }
+  } catch (error) {
+    console.error('View error:', error);
+    res.status(500).json({ success: false, message: 'Viewing failed', error: error.message });
   }
 };
 
@@ -262,6 +297,7 @@ const getDocumentChecklist = async (req, res) => {
 module.exports = {
   uploadDocument,
   downloadDocument,
+  viewDocument,
   getUserVault,
   getDocument,
   updateDocument,

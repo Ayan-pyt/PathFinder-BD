@@ -92,6 +92,7 @@ export default function DocumentManagementPage() {
   const [expandedTemplate, setExpandedTemplate] = useState<'lor' | 'gap' | null>('lor');
   const [copiedTemplate, setCopiedTemplate] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
   const [uploadForm, setUploadForm] = useState({
     file: null as File | null,
     documentType: 'offer_letter',
@@ -208,6 +209,30 @@ export default function DocumentManagementPage() {
     }
   };
 
+  // Preview via backend proxy with 'inline' disposition so browser opens it in new tab
+  const handlePreview = async (doc: Document) => {
+    if (previewingId) return;
+    setPreviewingId(doc._id);
+    try {
+      const token = localStorage.getItem('pf_token');
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${apiBase}/documents/${doc._id}/view`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error(`Server returned ${response.status}`);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      // Revoke the Object URL after 10 seconds to avoid memory leaks but give browser time to load it
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (err) {
+      alert('Preview failed. Please try again.');
+      console.error('Preview error:', err);
+    } finally {
+      setPreviewingId(null);
+    }
+  };
+
   const copyTemplate = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
     setCopiedTemplate(key);
@@ -218,18 +243,6 @@ export default function DocumentManagementPage() {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  };
-
-  // Builds a correct URL for both Cloudinary (absolute) and local (/uploads/...) files
-  const getFileUrl = (fileUrl: string): string => {
-    if (!fileUrl) return '';
-    // If it's already an absolute URL (Cloudinary / any CDN), use it directly
-    if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
-      return fileUrl;
-    }
-    // Otherwise it's a local path — prepend backend base URL
-    const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace('/api', '');
-    return `${baseUrl}${fileUrl}`;
   };
 
   const totalStorageUsed = documents.reduce((sum, doc) => sum + (doc.fileSize || 0), 0);
@@ -393,15 +406,16 @@ export default function DocumentManagementPage() {
                         <div className="flex gap-2 pt-3 border-t border-slate-100">
                           {doc.fileUrl && (
                               <>
-                                {/* Preview — opens file directly in browser tab */}
-                                <a
-                                  href={getFileUrl(doc.fileUrl)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 text-slate-600 text-xs font-medium hover:bg-slate-100 transition"
+                                {/* Preview — streams via backend proxy to support cross-origin inline rendering */}
+                                <button
+                                  onClick={() => handlePreview(doc)}
+                                  disabled={previewingId === doc._id}
+                                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 text-slate-600 text-xs font-medium hover:bg-slate-100 transition disabled:opacity-60 disabled:cursor-not-allowed"
                                 >
-                                  <Eye size={12} /> Preview
-                                </a>
+                                  {previewingId === doc._id
+                                    ? <Loader2 size={12} className="animate-spin" />
+                                    : <><Eye size={12} /> Preview</>}
+                                </button>
                                 {/* Download — uses backend proxy so auth + cross-origin both work */}
                                 <button
                                   onClick={() => handleDownload(doc)}
