@@ -91,6 +91,7 @@ export default function DocumentManagementPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [expandedTemplate, setExpandedTemplate] = useState<'lor' | 'gap' | null>('lor');
   const [copiedTemplate, setCopiedTemplate] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [uploadForm, setUploadForm] = useState({
     file: null as File | null,
     documentType: 'offer_letter',
@@ -129,6 +130,10 @@ export default function DocumentManagementPage() {
         documentDate: '',
         expiryDate: ''
       });
+    },
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : 'Upload failed. Please try again.';
+      alert(`Upload failed: ${msg}`);
     }
   });
 
@@ -175,6 +180,34 @@ export default function DocumentManagementPage() {
     deleteMutation.mutate(id);
   };
 
+  // Download via backend proxy so it works for both local files and Cloudinary URLs
+  const handleDownload = async (doc: Document) => {
+    if (downloadingId) return;
+    setDownloadingId(doc._id);
+    try {
+      const token = localStorage.getItem('pf_token');
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${apiBase}/documents/${doc._id}/download`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error(`Server returned ${response.status}`);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = window.document.createElement('a');
+      a.href = url;
+      a.download = doc.fileName || 'download';
+      window.document.body.appendChild(a);
+      a.click();
+      window.document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Download failed. Please try again.');
+      console.error('Download error:', err);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   const copyTemplate = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
     setCopiedTemplate(key);
@@ -185,6 +218,18 @@ export default function DocumentManagementPage() {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  // Builds a correct URL for both Cloudinary (absolute) and local (/uploads/...) files
+  const getFileUrl = (fileUrl: string): string => {
+    if (!fileUrl) return '';
+    // If it's already an absolute URL (Cloudinary / any CDN), use it directly
+    if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
+      return fileUrl;
+    }
+    // Otherwise it's a local path — prepend backend base URL
+    const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace('/api', '');
+    return `${baseUrl}${fileUrl}`;
   };
 
   const totalStorageUsed = documents.reduce((sum, doc) => sum + (doc.fileSize || 0), 0);
@@ -347,24 +392,29 @@ export default function DocumentManagementPage() {
 
                         <div className="flex gap-2 pt-3 border-t border-slate-100">
                           {doc.fileUrl && (
-                            <>
-                              <a
-                                href={`http://localhost:5000${doc.fileUrl}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 text-slate-600 text-xs font-medium hover:bg-slate-100 transition"
-                              >
-                                <Eye size={12} /> Preview
-                              </a>
-                              <a
-                                href={`http://localhost:5000${doc.fileUrl}`}
-                                download={doc.fileName}
-                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 text-blue-600 text-xs font-medium hover:bg-blue-100 transition"
-                              >
-                                <Download size={12} /> Download
-                              </a>
-                            </>
-                          )}
+                              <>
+                                {/* Preview — opens file directly in browser tab */}
+                                <a
+                                  href={getFileUrl(doc.fileUrl)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 text-slate-600 text-xs font-medium hover:bg-slate-100 transition"
+                                >
+                                  <Eye size={12} /> Preview
+                                </a>
+                                {/* Download — uses backend proxy so auth + cross-origin both work */}
+                                <button
+                                  onClick={() => handleDownload(doc)}
+                                  disabled={downloadingId === doc._id}
+                                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 text-blue-600 text-xs font-medium hover:bg-blue-100 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                                >
+                                  {downloadingId === doc._id
+                                    ? <Loader2 size={12} className="animate-spin" />
+                                    : <><Download size={12} /> Download</>}
+                                </button>
+                              </>
+                            )}
+
                         </div>
                       </div>
                     </div>
