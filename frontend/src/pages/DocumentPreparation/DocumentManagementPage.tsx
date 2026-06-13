@@ -101,6 +101,9 @@ export default function DocumentManagementPage() {
     documentDate: '',
     expiryDate: ''
   });
+  
+  // Image preview modal state
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   // Fetch user's documents
   const { data: vaultData, isLoading } = useQuery({
@@ -111,33 +114,40 @@ export default function DocumentManagementPage() {
   const documents: Document[] = vaultData?.documents || [];
   const grouped = vaultData?.grouped || {};
 
-  // Helper function to get preview URL - uses Google Docs Viewer for PDFs to force inline preview
-  const getPreviewUrl = (doc: Document) => {
-    let fileUrl = doc.fileUrl?.startsWith("http") 
+  // Helper function to get file URL
+  const getFileUrl = (doc: Document) => {
+    return doc.fileUrl?.startsWith("http") 
       ? doc.fileUrl 
       : `${import.meta.env.VITE_API_URL?.replace("/api", "")}${doc.fileUrl}`;
+  };
+
+  // Helper function to check if file is an image
+  const isImageFile = (fileName: string) => {
+    const imageFormats = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+    return imageFormats.some(format => fileName?.toLowerCase().endsWith(format));
+  };
+
+  // Handle preview click
+  const handlePreview = (doc: Document) => {
+    const fileUrl = getFileUrl(doc);
+    const fileName = doc.fileName || '';
     
-    // For PDF files - use Google Docs Viewer to force inline preview (works 100% of the time)
-    if (doc.fileName?.toLowerCase().endsWith('.pdf')) {
-      // For Cloudinary PDFs, ensure raw URL format
-      let pdfUrl = fileUrl;
-      if (fileUrl.includes('cloudinary.com')) {
-        pdfUrl = fileUrl.replace('/image/upload/', '/raw/upload/');
+    if (isImageFile(fileName)) {
+      // For images, show modal
+      setImagePreview(fileUrl);
+    } else {
+      // For documents, use Google Docs Viewer
+      let previewUrl = fileUrl;
+      if (fileUrl.includes('cloudinary.com') && fileName.toLowerCase().endsWith('.pdf')) {
+        previewUrl = fileUrl.replace('/image/upload/', '/raw/upload/');
       }
-      // Use Google Docs Viewer to force preview instead of download
-      return `https://docs.google.com/viewer?url=${encodeURIComponent(pdfUrl)}&embedded=true`;
+      window.open(`https://docs.google.com/viewer?url=${encodeURIComponent(previewUrl)}&embedded=true`, '_blank');
     }
-    
-    return fileUrl;
   };
 
   // Helper function to get download URL
   const getDownloadUrl = (doc: Document) => {
-    let url = doc.fileUrl?.startsWith("http") 
-      ? doc.fileUrl 
-      : `${import.meta.env.VITE_API_URL?.replace("/api", "")}${doc.fileUrl}`;
-    
-    // For Cloudinary PDFs, ensure correct resource type
+    let url = getFileUrl(doc);
     if (url.includes('cloudinary.com') && doc.fileName?.toLowerCase().endsWith('.pdf')) {
       url = url.replace('/image/upload/', '/raw/upload/');
     }
@@ -379,14 +389,12 @@ export default function DocumentManagementPage() {
                         <div className="flex gap-2 pt-3 border-t border-slate-100">
                           {doc.fileUrl && (
                             <>
-                              <a
-                                href={getPreviewUrl(doc)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 text-slate-600 text-xs font-medium hover:bg-slate-100 transition"
+                              <button
+                                onClick={() => handlePreview(doc)}
+                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 text-slate-600 text-xs font-medium hover:bg-slate-100 transition cursor-pointer"
                               >
                                 <Eye size={12} /> Preview
-                              </a>
+                              </button>
                               <a
                                 href={getDownloadUrl(doc)}
                                 download={doc.fileName}
@@ -454,6 +462,25 @@ export default function DocumentManagementPage() {
           </div>
         )}
       </div>
+
+      {/* Image Preview Modal */}
+      {imagePreview && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setImagePreview(null)}>
+          <div className="relative max-w-4xl max-h-[90vh] bg-white rounded-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => setImagePreview(null)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-all z-10"
+            >
+              <X size={18} />
+            </button>
+            <img
+              src={imagePreview}
+              alt="Preview"
+              className="max-w-full max-h-[90vh] object-contain"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Upload Modal */}
       {showUploadModal && (
@@ -729,24 +756,48 @@ export default function DocumentManagementPage() {
 //   const documents: Document[] = vaultData?.documents || [];
 //   const grouped = vaultData?.grouped || {};
 
-//   // Helper function to get preview URL (fixes PDF preview issue)
+//   // Helper function to get preview URL - checks images FIRST, then documents
 //   const getPreviewUrl = (doc: Document) => {
-//     let url = doc.fileUrl?.startsWith("http") 
+//     let fileUrl = doc.fileUrl?.startsWith("http") 
 //       ? doc.fileUrl 
 //       : `${import.meta.env.VITE_API_URL?.replace("/api", "")}${doc.fileUrl}`;
     
-//     // For Cloudinary PDFs, add fl_attachment=false to preview inline instead of downloading
-//     if (url.includes('cloudinary.com') && doc.fileName?.toLowerCase().endsWith('.pdf')) {
-//       url = url.includes('?') ? `${url}&fl_attachment=false` : `${url}?fl_attachment=false`;
+//     const fileName = doc.fileName?.toLowerCase() || '';
+    
+//     // Step 1: Check IMAGES first (browser can display these directly)
+//     const imageFormats = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+//     const isImage = imageFormats.some(format => fileName.endsWith(format));
+//     if (isImage) {
+//       return fileUrl;  // Direct browser preview
 //     }
-//     return url;
+    
+//     // Step 2: Check DOCUMENTS (need Google Docs Viewer)
+//     const documentFormats = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt'];
+//     const isDocument = documentFormats.some(format => fileName.endsWith(format));
+//     if (isDocument) {
+//       let docUrl = fileUrl;
+//       if (fileUrl.includes('cloudinary.com')) {
+//         docUrl = fileUrl.replace('/image/upload/', '/raw/upload/');
+//       }
+//       // Use Google Docs Viewer to preview document
+//       return `https://docs.google.com/viewer?url=${encodeURIComponent(docUrl)}&embedded=true`;
+//     }
+    
+//     // Step 3: Everything else - direct URL (will likely download)
+//     return fileUrl;
 //   };
 
 //   // Helper function to get download URL
 //   const getDownloadUrl = (doc: Document) => {
-//     return doc.fileUrl?.startsWith("http") 
+//     let url = doc.fileUrl?.startsWith("http") 
 //       ? doc.fileUrl 
 //       : `${import.meta.env.VITE_API_URL?.replace("/api", "")}${doc.fileUrl}`;
+    
+//     // For Cloudinary files, ensure correct resource type
+//     if (url.includes('cloudinary.com') && doc.fileName?.toLowerCase().endsWith('.pdf')) {
+//       url = url.replace('/image/upload/', '/raw/upload/');
+//     }
+//     return url;
 //   };
 
 //   // Upload mutation
