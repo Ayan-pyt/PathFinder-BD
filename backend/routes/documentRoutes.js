@@ -5,7 +5,6 @@ const upload = require('../middleware/uploadMiddleware');
 const {
   uploadDocument,
   downloadDocument,
-  viewDocument,
   getUserVault,
   getDocument,
   updateDocument,
@@ -15,12 +14,10 @@ const {
 
 router.use(protect);
 
-// Vault routes
 router.get('/vault', getUserVault);
 router.get('/checklist/:universityId', getDocumentChecklist);
 router.post('/upload', upload.single('file'), uploadDocument);
-router.get('/:id/download', downloadDocument);   // must be before /:id
-router.get('/:id/view', viewDocument);           // must be before /:id
+router.get('/:id/download', downloadDocument);  // ← new download route
 router.get('/:id', getDocument);
 router.put('/:id', updateDocument);
 router.delete('/:id', deleteDocument);
